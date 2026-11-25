@@ -224,6 +224,7 @@ final class TelemetryStore {
             }
         }
         notifier.observe(state: state, dish: dish, settings: settings)
+        notifier.watchQuality(store: self, settings: settings)
         recordAlerts()
     }
 

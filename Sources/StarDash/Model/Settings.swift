@@ -35,6 +35,11 @@ final class Settings {
     var notifyOutages: Bool { didSet { d.set(notifyOutages, forKey: "notifyOutages") } }
     var notifyAlerts: Bool { didSet { d.set(notifyAlerts, forKey: "notifyAlerts") } }
     var outageThreshold: Double { didSet { d.set(outageThreshold, forKey: "outageThreshold") } }
+    /// Link quality alerts. Zero turns each one off.
+    var alertLatencyMs: Double { didSet { d.set(alertLatencyMs, forKey: "alertLatencyMs") } }
+    var alertLossPercent: Double { didSet { d.set(alertLossPercent, forKey: "alertLossPercent") } }
+    var alertObstructionPercent: Double { didSet { d.set(alertObstructionPercent, forKey: "alertObstructionPercent") } }
+    var alertDataGB: Double { didSet { d.set(alertDataGB, forKey: "alertDataGB") } }
     var themeName: String { didSet { d.set(themeName, forKey: "theme") } }
     var openWindowAtLaunch: Bool { didSet { d.set(openWindowAtLaunch, forKey: "openWindowAtLaunch") } }
     /// Where the dish is, for working out which satellites are overhead. Kept to two decimals, about a kilometre.
@@ -66,6 +71,10 @@ final class Settings {
             "notifyOutages": true,
             "notifyAlerts": true,
             "outageThreshold": 10.0,
+            "alertLatencyMs": 250.0,
+            "alertLossPercent": 5.0,
+            "alertObstructionPercent": 0.0,
+            "alertDataGB": 0.0,
             "openWindowAtLaunch": true,
         ])
         menuBarItems = (d.stringArray(forKey: "menuBarItems") ?? []).compactMap(MenuBarItem.init(rawValue:))
@@ -78,6 +87,10 @@ final class Settings {
         notifyOutages = d.bool(forKey: "notifyOutages")
         notifyAlerts = d.bool(forKey: "notifyAlerts")
         outageThreshold = d.double(forKey: "outageThreshold")
+        alertLatencyMs = d.double(forKey: "alertLatencyMs")
+        alertLossPercent = d.double(forKey: "alertLossPercent")
+        alertObstructionPercent = d.double(forKey: "alertObstructionPercent")
+        alertDataGB = d.double(forKey: "alertDataGB")
         openWindowAtLaunch = d.bool(forKey: "openWindowAtLaunch")
         themeName = d.string(forKey: "theme") ?? "glass"
         siteLatitude = d.double(forKey: "siteLatitude")

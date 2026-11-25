@@ -482,6 +482,10 @@ final class DomeScene {
     private let satellites = SCNNode()
     private var satellitePool: [SCNNode] = []
     private let link = SCNNode()
+    private let linkMaterial = SCNMaterial()
+    /// How busy each direction looks, 0...1, eased so the beam doesn't jump every poll.
+    private var rxLevel: Double = 0
+    private var txLevel: Double = 0
     private var shown: [VisibleSatellite] = []
     private var bestID: Int?
     private var hoveredID: Int?
@@ -532,30 +536,71 @@ final class DomeScene {
         buildBeam()
     }
 
-    /// A glowing beam from the dish to the satellite it's most likely talking to: a bright core in a soft halo.
+    /// The link from the dish to the satellite it's most likely talking to, drawn as traffic: blue packets
+    /// coming down, purple ones going up, over a faint gold line. Busier directions get longer, brighter packets.
     private func buildBeam() {
-        let tube = SCNCylinder(radius: 0.011, height: 1)
+        let tube = SCNCylinder(radius: 0.016, height: 1)
         tube.radialSegmentCount = 32
-        let rgb = (NSColor(Palette.link).usingColorSpace(.sRGB) ?? .white)
-        let material = SceneKitHelpers.glow(.white)
+        func vec(_ color: Color) -> String {
+            let c = NSColor(color).usingColorSpace(.sRGB) ?? .white
+            return "vec3(\(c.redComponent), \(c.greenComponent), \(c.blueComponent))"
+        }
+        let material = linkMaterial
+        material.lightingModel = .constant
+        material.diffuse.contents = NSColor.white
+        material.blendMode = .add
+        material.writesToDepthBuffer = false
         material.readsFromDepthBuffer = false
         // Brightest where the tube faces the camera, so from any angle it reads as a line of light.
+        // The cylinder's texture runs 0 at the satellite end to 1 at the dish.
         material.shaderModifiers = [.fragment: """
+        uniform float rxLevel;
+        uniform float txLevel;
+        uniform float motion;
+        #pragma body
         float f = abs(dot(normalize(_surface.view), normalize(_surface.normal)));
         float core = pow(f, 22.0);
         float glow = pow(f, 4.0) * 0.28;
-        float t = _surface.diffuseTexcoord.y;
-        float ends = smoothstep(0.0, 0.06, 1.0 - t) * (0.55 + 0.45 * smoothstep(0.0, 0.5, 1.0 - t));
-        vec3 tint = mix(vec3(\(rgb.redComponent), \(rgb.greenComponent), \(rgb.blueComponent)), vec3(1.0), core);
-        float a = clamp(core + glow, 0.0, 1.0) * ends;
-        _output.color = vec4(tint * a, a);
+        float body = pow(f, 3.0);
+        float s = 1.0 - _surface.diffuseTexcoord.y;
+        float ends = smoothstep(0.0, 0.06, s) * smoothstep(0.0, 0.03, 1.0 - s);
+        float clock = u_time * motion * 3.5;
+        float count = 7.0;
+
+        // Down: each packet's bright head leads toward the dish, with a tail fading behind it.
+        float rp = fract(s * count + clock);
+        float rx = smoothstep(0.0, 0.03, rp) * (1.0 - smoothstep(0.0, mix(0.08, 0.35, rxLevel), rp)) * mix(0.4, 1.0, rxLevel);
+        // Up: the same, heading for the satellite, half a spacing out of step.
+        float tp = 1.0 - fract(s * count - clock + 0.5);
+        float tx = smoothstep(0.0, 0.03, tp) * (1.0 - smoothstep(0.0, mix(0.08, 0.35, txLevel), tp)) * mix(0.4, 1.0, txLevel) * 1.3;
+
+        vec3 col = \(vec(Palette.link)) * (core * 0.22 + glow * 0.3)
+                 + mix(\(vec(Palette.down)), vec3(1.0), core * 0.6) * rx * (body + core)
+                 + mix(\(vec(Palette.up)), vec3(1.0), core * 0.6) * tx * (body + core);
+        col *= ends;
+        _output.color = vec4(col, clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0));
         """]
         tube.firstMaterial = material
         link.geometry = tube
         link.renderingOrder = 21
         link.isHidden = true
-        link.runAction(.repeatForever(.sequence([.fadeOpacity(to: 0.8, duration: 1.4), .fadeOpacity(to: 1, duration: 1.4)])))
+        setTraffic(down: nil, up: nil)
         turntable.addChildNode(link)
+    }
+
+    /// Sets how busy the link looks from the dish's live throughput, in bits per second.
+    /// On a log scale: 10 kbps is idle, 1 Gbps is flat out.
+    func setTraffic(down: Double?, up: Double?) {
+        func level(_ bps: Double?) -> Double {
+            guard let bps, bps.isFinite else { return 0 }
+            return min(1, max(0, log10(max(bps, 1e4) / 1e4) / 5))
+        }
+        rxLevel = (rxLevel + level(down)) / 2
+        txLevel = (txLevel + level(up)) / 2
+        linkMaterial.setValue(NSNumber(value: rxLevel), forKey: "rxLevel")
+        linkMaterial.setValue(NSNumber(value: txLevel), forKey: "txLevel")
+        let still = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        linkMaterial.setValue(NSNumber(value: still ? 0.0 : 1.0), forKey: "motion")
     }
 
     /// A soft glow that breathes behind the linked satellite.
@@ -1079,6 +1124,9 @@ struct DomeView: NSViewRepresentable {
     var alignment: Alignment?
     var sky = SkyOverlay()
     var showMap = true
+    /// Live throughput in bits per second, for the traffic on the satellite link.
+    var down: Double? = nil
+    var up: Double? = nil
 
     func makeCoordinator() -> DomeScene { DomeScene() }
 
@@ -1100,6 +1148,7 @@ struct DomeView: NSViewRepresentable {
         context.coordinator.update(map: map, alignment: alignment)
         context.coordinator.update(sky: sky)
         context.coordinator.setMapVisible(showMap)
+        context.coordinator.setTraffic(down: down, up: up)
     }
 }
 

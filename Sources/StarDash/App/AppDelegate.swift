@@ -8,7 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     let speedTest = SpeedTest()
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
-    private let dot = NSView(frame: NSRect(x: 0, y: 0, width: 6, height: 6))
+    /// The dish logo in the link state's color, laid over the template readout so the text keeps the menu bar's tint.
+    private let statusLogo = NSImageView()
     private let actions = AppActions()
     private var window: NSWindow?
 
@@ -26,9 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             button.action = #selector(togglePopover)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             button.imagePosition = .imageOnly
-            dot.wantsLayer = true
-            dot.layer?.cornerRadius = 3
-            button.addSubview(dot)
+            statusLogo.imageScaling = .scaleNone
+            button.addSubview(statusLogo)
         }
 
         popover.behavior = .transient
@@ -110,13 +110,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         withObservationTracking {
             guard let button = statusItem.button else { return }
             let settings = Settings.shared
-            let inset: CGFloat = settings.showStatusDot ? 10 : 0
-            let image = MenuBarRenderer.image(store: store, settings: settings, leadingInset: inset)
+            let colored = settings.showStatusDot
+            let image = MenuBarRenderer.image(store: store, settings: settings, leadingInset: 0,
+                                              logo: colored ? .space : .inline)
             button.image = image
             statusItem.length = image.size.width + 12
-            dot.isHidden = !settings.showStatusDot
-            dot.layer?.backgroundColor = Palette.nsState(store.state).cgColor
-            dot.frame.origin = NSPoint(x: 6, y: (button.bounds.height - 6) / 2)
+            statusLogo.isHidden = !colored
+            if colored {
+                let logo = MenuBarRenderer.logo(online: store.state.isUp, color: Palette.nsState(store.state))
+                statusLogo.image = logo
+                statusLogo.frame = NSRect(x: 6, y: (button.bounds.height - logo.size.height) / 2,
+                                          width: logo.size.width, height: logo.size.height)
+            }
             button.toolTip = tooltip
         } onChange: { [weak self] in
             Task { @MainActor in self?.render() }

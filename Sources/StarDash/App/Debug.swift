@@ -246,6 +246,8 @@ enum Snapshot {
             dome.camera.simdLook(at: target, up: [0, 1, 0], localFront: [0, 0, -1])
             dome.update(map: store.map, alignment: store.dish?.alignment)
             dome.update(sky: SkyOverlay(satellites: watch.satellites, ahead: watch.ahead, best: best?.id))
+            // A busy link, eased in the way a second of polling would.
+            for _ in 0..<6 { dome.setTraffic(down: 150e6, up: 15e6) }
             let size = CGSize(width: 1200, height: 860)
             let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
             renderer.scene = dome.scene

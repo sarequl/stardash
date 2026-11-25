@@ -71,7 +71,7 @@ struct SettingsPane: View {
                         }
                     }
                     HStack(spacing: 28) {
-                        Toggle("Colored status dot", isOn: $settings.showStatusDot)
+                        Toggle("Color the dish by status", isOn: $settings.showStatusDot)
                         HStack(spacing: 10) {
                             Text("Speed in")
                             ChipPicker(options: [(false, "Mbps"), (true, "MB/s")], selection: $settings.useBytes)
@@ -117,6 +117,26 @@ struct SettingsPane: View {
                 SettingRow(icon: "bell.badge.fill", tint: Palette.power, title: "Dish alerts and firmware",
                            detail: "Overheating, slow Ethernet, new firmware") {
                     Toggle("", isOn: $settings.notifyAlerts).labelsHidden()
+                }
+                SettingRow(icon: "gauge.with.needle.fill", tint: Palette.warn, title: "High latency",
+                           detail: "Average over the last 5 minutes") {
+                    DropPicker(options: [(0.0, "Off"), (100.0, "100 ms"), (150.0, "150 ms"), (250.0, "250 ms")],
+                               selection: $settings.alertLatencyMs)
+                }
+                SettingRow(icon: "waveform.path.badge.minus", tint: Palette.bad, title: "Packet loss",
+                           detail: "Over the last 5 minutes, outages aside") {
+                    DropPicker(options: [(0.0, "Off"), (2.0, "2%"), (5.0, "5%"), (10.0, "10%")],
+                               selection: $settings.alertLossPercent)
+                }
+                SettingRow(icon: "tree.fill", tint: Palette.good, title: "Obstruction",
+                           detail: "Share of time the dish's view is blocked") {
+                    DropPicker(options: [(0.0, "Off"), (1.0, "1%"), (3.0, "3%"), (5.0, "5%")],
+                               selection: $settings.alertObstructionPercent)
+                }
+                SettingRow(icon: "chart.bar.fill", tint: Palette.accent, title: "Daily data",
+                           detail: "Once a day, when today's use passes this") {
+                    DropPicker(options: [(0.0, "Off"), (10.0, "10 GB"), (25.0, "25 GB"), (50.0, "50 GB"), (100.0, "100 GB")],
+                               selection: $settings.alertDataGB)
                 }
             }
         }
@@ -239,11 +259,12 @@ private struct MenuBarPreview: View {
             Text("File").font(.system(size: 13))
             Text("Edit").font(.system(size: 13))
             Spacer()
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 if settings.showStatusDot {
-                    Circle().fill(Color(nsColor: Palette.nsState(store.state))).frame(width: 6, height: 6)
+                    Image(nsImage: MenuBarRenderer.logo(online: store.state.isUp, color: Palette.nsState(store.state)))
                 }
-                Image(nsImage: MenuBarRenderer.image(store: store, settings: settings, leadingInset: 0))
+                Image(nsImage: MenuBarRenderer.image(store: store, settings: settings, leadingInset: 0,
+                                                     logo: settings.showStatusDot ? .none : .inline))
                     .renderingMode(.template)
             }
             .padding(.horizontal, 8)

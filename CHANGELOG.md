@@ -4,6 +4,18 @@ Notable changes to StarDash. Versions follow [Semantic Versioning](https://semve
 
 ## [Unreleased]
 
+### Added
+- Alerts for a link that's up but struggling: high latency or packet loss over the last 5 minutes,
+  and obstruction going up. Plus a once-a-day note when data used today passes a set amount.
+  Each has its own level in Settings › Notifications, and each can be turned off.
+
+### Changed
+- The menu bar dish takes the link's color (green, amber, red or gray) in place of the status dot.
+- With the dish colored by status, the menu bar no longer spells out why the link is degraded.
+  The tooltip and the popover still say why.
+- On the Sky page's 3D view, the link to the satellite shows data moving: blue packets coming down,
+  purple ones going up, longer and brighter the more data is moving.
+
 ## [0.5.0] - 2026-11-26
 
 ### Added

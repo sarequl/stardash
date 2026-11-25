@@ -74,7 +74,9 @@ struct SkyPane: View {
                 Group {
                     switch style {
                     case .dome:
-                        DomeView(map: map, alignment: alignment, sky: sky, showMap: showDomeMap)
+                        DomeView(map: map, alignment: alignment, sky: sky, showMap: showDomeMap,
+                                 down: store.state.isUp ? store.dish?.downBps : nil,
+                                 up: store.state.isUp ? store.dish?.upBps : nil)
                     case .radar:
                         RadarSky(map: map, alignment: alignment, sky: sky)
                             .padding(.top, 120).padding(.bottom, lapse ? 96 : 56).padding(.horizontal, 28)

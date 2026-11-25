@@ -15,6 +15,7 @@ enum MenuBarRenderer {
         case stacked(String, String)
         case sparkline([Float])
         case icon(NSImage)
+        case blank(CGFloat)
 
         var width: CGFloat {
             switch self {
@@ -25,6 +26,7 @@ enum MenuBarRenderer {
                 return ceil(max(wa, wb))
             case .sparkline: return 34
             case .icon(let image): return image.size.width
+            case .blank(let width): return width
             }
         }
     }
@@ -39,16 +41,25 @@ enum MenuBarRenderer {
         .foregroundColor: NSColor.black,
     ]
 
-    static func image(store: TelemetryStore, settings: Settings, leadingInset: CGFloat) -> NSImage {
+    /// Where the logo goes: drawn in, left as a gap for a colored one laid on top, or left out.
+    enum LogoMode { case inline, space, none }
+
+    static func image(store: TelemetryStore, settings: Settings, leadingInset: CGFloat, logo logoMode: LogoMode = .inline) -> NSImage {
         var segments: [Segment] = []
         let state = store.state
 
-        segments.append(.icon(logo(online: state.isUp)))
+        switch logoMode {
+        case .inline: segments.append(.icon(logo(online: state.isUp)))
+        case .space: segments.append(.blank(logo(online: state.isUp).size.width))
+        case .none: break
+        }
 
         // When something's wrong, say what. A dish that's down has no numbers worth showing.
         switch state {
         case .online: break
-        case .degraded(let why), .offline(let why): segments.append(.text(why))
+        // A dish colored by status already says it's degraded; the tooltip and popover say why.
+        case .degraded(let why): if !settings.showStatusDot { segments.append(.text(why)) }
+        case .offline(let why): segments.append(.text(why))
         case .unreachable: segments.append(.text("No dish"))
         }
 
@@ -100,6 +111,7 @@ enum MenuBarRenderer {
                     b.draw(at: NSPoint(x: x + w - b.size().width, y: height / 2 - b.size().height + 0.5))
                 case .sparkline(let values):
                     drawSparkline(values, in: NSRect(x: x, y: 5, width: segment.width, height: height - 10))
+                case .blank: break
                 }
                 x += segment.width + gap
             }
@@ -110,7 +122,9 @@ enum MenuBarRenderer {
     }
 
     /// The app icon's dish and satellite, without its tile. Offline, the signal arcs go and the satellite fades.
-    static func logo(online: Bool, height: CGFloat = 17) -> NSImage {
+    /// With a color it's drawn in that color instead of as a template, so it can show the link state.
+    static func logo(online: Bool, height: CGFloat = 17, color: NSColor? = nil) -> NSImage {
+        let ink = color ?? .black
         // The icon's artwork spans about x 19...92, y 15...88 of its 100-unit square.
         let box = NSRect(x: 19, y: 15, width: 73, height: 73)
         let scale = height / box.height
@@ -119,7 +133,7 @@ enum MenuBarRenderer {
             t.scale(by: scale)
             t.translateX(by: -box.minX, yBy: -box.minY)
             t.concat()
-            NSColor.black.set()
+            ink.set()
             func line(_ a: NSPoint, _ b: NSPoint, width: CGFloat = 4) {
                 let p = NSBezierPath(); p.move(to: a); p.line(to: b)
                 p.lineWidth = width; p.lineCapStyle = .round; p.stroke()
@@ -137,10 +151,10 @@ enum MenuBarRenderer {
                     let arc = NSBezierPath()
                     arc.appendArc(withCenter: NSPoint(x: 72, y: 28), radius: radius, startAngle: 153, endAngle: 103, clockwise: true)
                     arc.lineWidth = 4; arc.lineCapStyle = .round
-                    NSColor.black.withAlphaComponent(alpha).setStroke(); arc.stroke()
+                    ink.withAlphaComponent(alpha).setStroke(); arc.stroke()
                 }
             }
-            NSColor.black.withAlphaComponent(online ? 1 : 0.35).set()
+            ink.withAlphaComponent(online ? 1 : 0.35).set()
             let sat = NSAffineTransform()
             sat.translateX(by: 72, yBy: 28); sat.rotate(byDegrees: 35); sat.translateX(by: -72, yBy: -28)
             sat.concat()
@@ -150,7 +164,7 @@ enum MenuBarRenderer {
             line(NSPoint(x: 66.5, y: 28), NSPoint(x: 77.5, y: 28), width: 1.8)
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = color == nil
         image.accessibilityDescription = "StarDash"
         return image
     }
